@@ -24,6 +24,7 @@ def straight():
     controllerSet.set_value('AxisLx', 0.0)
 
 def slightRight():
+
     controllerSet.set_value('AxisLx', 0.1)
 
 def medRight():

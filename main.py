@@ -1,129 +1,204 @@
 import numpy as np
-
+import os
 import time
-from PIL import ImageGrab
 import cv2
-import queue
 
-from drawTrack import drawTrack
-from inputs import gunIt, straight, medLeft, medRight, slow, lightBrake, hardRight, hardLeft, slightRight, slightLeft
+from getControllerData import getDrivingState, sample_first_joystick, XInputJoystick
+from getDisplay import getDisplay
 
+def formatDrivingState(dState):
+    for i in range(0, 4):
+        if -0.12 < dState[i] < .12:
+            dState[i] = 0
+    return dState
 
-def process_img(originalImage):
-    #defaults
-    m1 = 0
-    m2 = 0
-    l1 = (0, 1, 2, 3)
-    l2 = (0, 1, 2, 3)
+def controllerToOutput(state):
+    # [0: Low breaks, 1: med brakes, 2: full brakes, 3: low gas, 4: med gas, 5: full gas,
+    #  6: slight X stick+, 7: med X stick+, 8: full X stick+, 9: slight X Stick -, 10: med Xstick -, 11: full xstick-,
+    #  12: low gas and slight X+, 13: low gas and med X+, 14: low gas and full X+,
+    #  15: low gas and slight X-, 16: low gas and med X+, 17: low gas and full X-,
+    #  18: med gas and slight X+, 19: med gas and med X+, 20: med gas and full X+, 
+    #  21: med gas and slight X-, 22: med gas and med X-, 23: med gas and full X-,
+    #  24: full gas and slight X+, 25: full gas and med X+, 26: full gas and full X+, 
+    #  27: full gas and slight X-, 28: full gas and med X-, 29: full gas and full X-,
+    #  30: low brake and slight X+, 31: low brake and med X+, 32: low brake and full X+,
+    #  33: low brake and slight X-, 34: low brake and med X+, 35: low brake and full X-,
+    #  36: med brake and slight X+, 37: med brake and med X+, 38: med brake and full X+,
+    #  39: med brake and slight X-, 40: med brake and med X-, 41: med brake and full X-,
+    #  42: full brake and slight X+, 43: full brake and med X+, 44: full brake and full X+,
+    #  45: full brake and slight X-, 46: full brake and med X-, 47: full brake and full X-,
+    #  48: coast]
+    output = np.zeros(49, dtype=np.int)
+    if .3 > state[1] > 0 and .2 >= state[2] > 0:
+        output[12] = 1
+    elif .3 > state[1] > 0 and .4 > state[2] > .2:
+        output[13] = 1
+    elif .3 > state[1] > 0 and state[2] >= .4:
+        output[14] = 1
+    elif .3 > state[1] > 0 and -.2 <= state[3] < 0:
+        output[15] = 1
+    elif .3 > state[1] > 0 and -.4 < state[3] < -.2:
+        output[16] = 1
+    elif .3 > state[1] > 0 and state[3] <= -.4:
+        output[17] = 1
+    elif .7 > state[1] >= .3 and .2 >= state[2] > 0:
+        output[18] = 1
+    elif .7 > state[1] >= .3 and .4 > state[2] > .2:
+        output[19] = 1
+    elif .7 > state[1] >= .3 and state[2] >= .4:
+        output[20] = 1
+    elif .7 > state[1] >= .3 and -.2 <= state[3] < 0:
+        output[21] = 1
+    elif .7 > state[1] >= .3 and -.4 < state[3] < -.2:
+        output[22] = 1
+    elif .7 > state[1] >= .3 and state[3] <= -.4:
+        output[23] = 1
+    elif state[1] >= .7 and .2 >= state[2] > 0:
+        output[24] = 1
+    elif state[1] >= .7 and .4 > state[2] > .2:
+        output[25] = 1
+    elif state[1] >= .7 and state[2] >= .4:
+        output[26] = 1
+    elif state[1] >= .7 and -.2 <= state[3] < 0:
+        output[27] = 1
+    elif state[1] >= .7 and -.4 < state[3] < -.2:
+        output[28] = 1
+    elif state[1] >= .7 and state[3] <= -.4:
+        output[29] = 1
+    elif .3 > state[0] > 0 and .2 >= state[2] > 0:
+        output[30] = 1
+    elif .3 > state[0] > 0 and .4 > state[2] > .2:
+        output[31] = 1
+    elif .3 > state[0] > 0 and state[2] >= .4:
+        output[32] = 1
+    elif .3 > state[0] > 0 and -.2 <= state[3] < 0:
+        output[33] = 1
+    elif .3 > state[0] > 0 and -.4 < state[3] < -.2:
+        output[34] = 1
+    elif .3 > state[0] > 0 and state[3] <= -.4:
+        output[35] = 1
+    elif .7 > state[0] >= .3 and .2 >= state[2] > 0:
+        output[36] = 1
+    elif .7 > state[0] >= .3 and .4 > state[2] > .2:
+        output[37] = 1
+    elif .7 > state[0] >= .3 and state[2] >= .4:
+        output[38] = 1
+    elif .7 > state[0] >= .3 and -.2 <= state[3] < 0:
+        output[39] = 1
+    elif .7 > state[0] >= .3 and -.4 < state[3] < -.2:
+        output[40] = 1
+    elif .7 > state[0] >= .3 and state[3] <= -.4:
+        output[41] = 1
+    elif state[0] >= .7 and .2 >= state[2] > 0:
+        output[42] = 1
+    elif state[0] >= .7 and .4 > state[2] > .2:
+        output[43] = 1
+    elif state[0] >= .7 and state[2] >= .4:
+        output[44] = 1
+    elif state[0] >= .7 and -.2 <= state[3] < 0:
+        output[45] = 1
+    elif state[0] >= .7 and -.4 < state[3] < -.2:
+        output[46] = 1
+    elif state[0] >= .7 and state[3] <= -.4:
+        output[47] = 1
+    elif state[1] >= .7:
+        output[5] = 1
+    elif .7 > state[1] >= .3:
+        output[4] = 1
+    elif .3 > state[1] > 0:
+        output[3] = 1
+    elif state[0] >= .7:
+        output[2] = 1
+    elif .7 > state[0] >= .3:
+        output[1] = 1
+    elif .3 > state[0] > 0:
+        output[0] = 1
+    elif .2 >= state[2] > 0:
+        output[6] = 1
+    elif .4 > state[2] > .2:
+        output[7] = 1
+    elif state[2] >= .4:
+        output[8] = 1
+    elif -.2 <= state[3] < 0:
+        output[9] = 1
+    elif -.4 < state[3] < -.2:
+        output[10] = 1
+    elif state[3] <= -.4:
+        output[11] = 1
+    else:
+        output[48] = 1
+    return output
 
-    processedImage = cv2.cvtColor(originalImage, cv2.COLOR_BGR2GRAY)
-    processedImage = cv2.Canny(processedImage, threshold1=150, threshold2=250)
-    vertices = np.array([[10, 600], [10, 450], [250, 300], [1020, 300], [1270, 450], [1270, 600], [1270, 720], [600, 400], [10, 720]])
-    processedImage = roi(processedImage, [vertices])
-    processedImage = cv2.GaussianBlur(processedImage, (5,5), 0)
-    # Edges needed here TODO: Tweak values, min line length, max line gap
-    lines = cv2.HoughLinesP(processedImage, 1, np.pi/180, 180, np.array([]), 100, 5)
-    try:
-        l1, l2, m1, m2 = drawTrack(originalImage, lines)
-        cv2.line(originalImage, (l1[0], l1[1]), (l1[2], l1[3]), [0, 255, 0], 5)
-        cv2.line(originalImage, (l2[0], l2[1]), (l2[2], l2[3]), [0, 255, 0], 5)
-    except Exception as e:
-        print(str(e))
-        pass
-    try:
-        for coords in lines:
-            coords = coords[0]
-            try:
-                cv2.line(processedImage, (coords[0], coords[1]), (coords[2], coords[3]), [255, 0, 0], 3)
-            except:
-                pass
-    except:
-        pass
+trainingFilename = "training_data"
 
-    return processedImage, originalImage, m1, m2, l1, l2
-
-def intersection(line1, line2):
-    xdiff = (line1[0] - line1[2], line2[0] - line2[2])
-    ydiff = (line1[1] - line1[3], line2[1] - line2[3])  # Typo was here
-
-    def det(a, b):
-        return a[0] * b[1] - a[1] * b[0]
-
-    div = det(xdiff, ydiff)
-    if div == 0:
-        # If parallel lines go straight
-        return 640, 360
-
-    d = (det([line1[0], line1[1]], [line1[2], line1[3]]), det([line2[0], line2[1]], [line2[2], line2[3]]))
-    x = det(d, xdiff) / div
-    y = det(d, ydiff) / div
-    return x, y
-
-# Mask off a region of interest since we don't really care about the sky and such
-def roi(image, vertices):
-    mask = np.zeros_like(image)
-    cv2.fillPoly(mask, vertices, 255)
-    return cv2.bitwise_and(image, mask)
+if os.path.isfile(trainingFilename + ".npy"):
+    print("File exsists, loading prev data")
+    trainingData = list(np.load(trainingFilename + ".npy"))
+else:
+    print("no previous data, making data file")
+    trainingData = []
 
 lastTime = time.time()
-queue = queue.Queue(maxsize=6)
+drivingState = [0, 0, 0, 0, ]
+joysticks = XInputJoystick.enumerate_devices()
+j = joysticks[0]
+dry_run = 1
+file_counter = 0
+
+if not dry_run:
+    for i in range(0, 5):
+        print(i + 1)
+        time.sleep(1)
+
 while True:
-    screen = np.array(ImageGrab.grab(bbox=(0,40, 1280, 720)))
-    processedScreen, original, m1, m2, l1, l2 = process_img(screen)
-    print("Rendering {} fps".format(1 / (time.time() - lastTime)))
-    lastTime = time.time()
+    screen = np.array(getDisplay(region=(0, 40, 1280, 760)))
+    j.dispatch_events()
+    screen = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
+    screen = cv2.resize(screen, (160, 90))
+    drivingState = formatDrivingState(drivingState)
+    output = controllerToOutput(drivingState)
+    trainingData.append([screen, output])
 
-    inter = intersection(l1, l2)
-    inter = (min(1280, inter[0]), inter[1])
-    inter = (max(0, inter[0]), inter[1])
-    if queue.full():
-        queue.get()
-    queue.put(inter[0])
-    meanX = np.math.floor(np.mean(queue.queue))
-    meanX = min(1280, meanX)
-    meanX = max(0, meanX)
-    print(meanX)
+    if dry_run:
+        print(output)
 
-    cv2.circle(original, (int(meanX), 360), 10, (255, 0, 0), thickness= 4)
+    if len(trainingData) %500 == 0 and not dry_run:
+        print(len(trainingData))
+        print("Rendering {} fps".format(500 / (time.time() - lastTime)))
+        lastTime = time.time()
+        np.save(trainingFilename + ".npy", trainingData)
 
-    cv2.imshow('window', original)
+    if len(trainingData) %5000 == 0 and not dry_run:
+        file_counter += 1
+        print(len(trainingData))
+        print("Saving to new file, total {}".format(file_counter * 5000))
+        print("Rendering {} fps".format(500 / (time.time() - lastTime)))
+        lastTime = time.time()
+        np.save(trainingFilename + str(file_counter) + ".npy", trainingData)
+        trainingData = []
+
     if cv2.waitKey(25) & 0xFF == ord('q'):
         cv2.destroyAllWindows()
         break
 
-    inter = intersection(l1, l2)
-    if queue.full():
-        queue.get()
-    queue.put(inter[0])
-    meanX = np.mean(queue.queue)
-    print(meanX)
-    if 1050 > meanX > 800:
-        medRight()
-        lightBrake()
-    elif 250 < meanX < 500:
-        medLeft()
-        lightBrake()
-    elif meanX < 250:
-        hardLeft()
-        lightBrake()
-    elif meanX > 1050:
-        hardRight()
-        lightBrake()
-    elif 650 < meanX < 800:
-        slightRight()
-    elif 500 < meanX < 630:
-        slightLeft()
-    else:
-        straight()
 
-    if m1 < 0 and m2 < 0:
-        medRight()
-        lightBrake()
-    elif m1 > 0 and m2 > 0:
-        medLeft()
-        lightBrake()
+    @j.event
+    def on_axis(axis, value):
+        left_speed = 0
+        right_speed = 0
 
-
-    slow()
-
-
+        # print('axis', axis, value)
+        if axis == "left_trigger":
+            left_speed = value
+            drivingState[0] = value
+        elif axis == "right_trigger":
+            right_speed = value
+            drivingState[1] = value
+        elif axis == "l_thumb_x":
+            if value > 0:
+                drivingState[2] = value
+                drivingState[3] = 0
+            else:
+                drivingState[3] = value
+                drivingState[2] = 0
+        j.set_vibration(left_speed, right_speed)

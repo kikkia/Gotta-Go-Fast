@@ -6,7 +6,7 @@ import cv2
 import queue
 
 from drawTrack import drawTrack
-from inputs import gunIt, straight, medLeft, medRight, slow, lightBrake, hardRight, hardLeft, slightRight, slightLeft
+from inputConfig import gunIt, straight, medLeft, medRight, slow, lightBrake, hardRight, hardLeft, slightRight, slightLeft
 
 
 def process_img(originalImage):
