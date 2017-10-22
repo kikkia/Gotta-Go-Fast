@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import time
+import time 
 
 #######   training part    ###############
 samples = np.loadtxt('generalsamples.data',np.float32)
