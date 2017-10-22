@@ -28,7 +28,8 @@ def controllerToOutput(state):
     #  42: full brake and slight X+, 43: full brake and med X+, 44: full brake and full X+,
     #  45: full brake and slight X-, 46: full brake and med X-, 47: full brake and full X-,
     #  48: coast]
-    output = np.zeros(49, dtype=np.int)
+    output = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ]
     if .3 > state[1] > 0 and .2 >= state[2] > 0:
         output[12] = 1
     elif .3 > state[1] > 0 and .4 > state[2] > .2:
@@ -142,7 +143,7 @@ lastTime = time.time()
 drivingState = [0, 0, 0, 0, ]
 joysticks = XInputJoystick.enumerate_devices()
 j = joysticks[0]
-dry_run = 1
+dry_run = 0
 file_counter = 0
 
 if not dry_run:
